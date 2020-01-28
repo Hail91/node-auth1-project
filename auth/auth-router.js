@@ -2,6 +2,7 @@ const bc = require("bcryptjs");
 const router = require("express").Router();
 
 const Users = require("../users/users-model.js");
+const restricted = require('./restrict-middleware');
 
 router.get("/users", restricted, (req, res, next) => {
     if (req.headers.authorization) {
@@ -41,48 +42,19 @@ router.post("/login", (req, res) => {
         .first()
         .then(user => {
             if (user && bc.compareSync(password, user.password)) {
-                // if (user) {
-                // compare().then(match => {
-                //   if (match) {
-                //     // good password
-                //   } else {
-                //     // they don't match
-                //   }
-                // }).catch()
+                req.session.loggedIn = true; // In restricted middleware
+                req.session.userId = user.id; // In case we need to grab the User ID later
                 res.status(200).json({ message: `Welcome ${user.username}!` });
             } else {
-                res.status(401).json({ message: "Invalid Credentials" });
+                res.status(401).json({ message: "Not authorized!" });
             }
         })
         .catch(error => {
-            res.status(500).json(error);
+            console.log(error)
+            res.status(500).json({
+                error: 'You shall not pass!'
+            });
         });
 });
-
-// Custom validation MW...
-
-function restricted(req, res, next) {
-    // we'll read the username and password from headers
-    // the client is responsible for setting those headers
-    const { username, password } = req.headers;
-  
-    // no point on querying the database if the headers are not present
-    if (username && password) {
-      Users.findBy({ username })
-        .first()
-        .then(user => {
-          if (user && bcrypt.compareSync(password, user.password)) {
-            next();
-          } else {
-            res.status(401).json({ message: 'Invalid Credentials' });
-          }
-        })
-        .catch(error => {
-          res.status(500).json({ message: 'Unexpected error' });
-        });
-    } else {
-      res.status(400).json({ message: 'No credentials provided' });
-    }
-  } 
 
 module.exports = router;
